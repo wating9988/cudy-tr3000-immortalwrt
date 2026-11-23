@@ -20,7 +20,7 @@ env:
 jobs:
   addons:
     runs-on: ubuntu-22.04
-    timeout-minutes: 300
+    timeout-minutes: 240
 
     steps:
       - uses: actions/checkout@v4
@@ -42,14 +42,12 @@ jobs:
             bzip2 xz-utils patch diffutils perl wget curl
           nproc && free -h
 
-      - name: Clone source + feeds (official feeds only)
+      - name: Clone source + feeds
         run: |
           git clone --depth 1 -b 25.12 https://github.com/chasey-dev/immortalwrt-mt798x-rebase.git openwrt
           cd openwrt
           ./scripts/feeds update -a > ../feeds.log 2>&1
           ./scripts/feeds install -a >> ../feeds.log 2>&1
-          ls feeds/packages/net | grep -E "^xray-core$|^v2ray-geodata$|^simple-obfs$|^sing-box$|^geoview$" || true
-          ls feeds/luci/applications | grep -E "passwall" || true
 
       - name: Configure
         run: |
@@ -58,49 +56,45 @@ jobs:
           cat >> .config <<'EOF'
           CONFIG_TARGET_mediatek=y
           CONFIG_TARGET_mediatek_filogic=y
-          CONFIG_TARGET_mediatek_filogic_DEVICE_cudy_tr3000-v1-ubootmod=y
+          CONFIG_TARGET_MULTI_PROFILE=y
+          CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+          CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cudy_tr3000-v1-ubootmod=y
           CONFIG_PACKAGE_luci-app-passwall=m
           CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Xray=y
           CONFIG_PACKAGE_luci-app-passwall_INCLUDE_V2ray_Geodata=y
           CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Simple_Obfs=y
-          CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox=y
+          # CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox is not set
+          # CONFIG_PACKAGE_luci-app-passwall_INCLUDE_V2ray_Geoview is not set
           CONFIG_PACKAGE_luci-i18n-passwall-zh-cn=m
           CONFIG_PACKAGE_xray-core=m
           CONFIG_PACKAGE_v2ray-geodata=m
           CONFIG_PACKAGE_simple-obfs=m
-          CONFIG_PACKAGE_sing-box=m
           EOF
           make defconfig > ../cfg.log 2>&1 || true
           echo "== selected =="
-          grep -E "^CONFIG_PACKAGE_(luci-app-passwall|luci-i18n-passwall-zh-cn|xray-core|v2ray-geodata|simple-obfs|sing-box)=" .config || echo "WARN: nothing selected"
-          grep -E "^# CONFIG_PACKAGE_(luci-app-passwall|xray-core|sing-box) is not set" .config || true
+          grep -E "^CONFIG_PACKAGE_(luci-app-passwall|luci-i18n-passwall-zh-cn|xray-core|v2ray-geodata|simple-obfs)=" .config || echo "WARN none"
+          grep -E "^# CONFIG_PACKAGE_luci-app-passwall is not set" .config || true
           grep -E "^CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cudy_tr3000-v1-ubootmod=" .config || true
 
       - name: Build host tools
         run: |
           cd openwrt
-          make -j"$(nproc)" tools/install > ../tools.log 2>&1 || { tail -n 60 ../tools.log ; exit 1 ; }
+          make -j"$(nproc)" tools/install > ../tools.log 2>&1 || { tail -n 40 ../tools.log ; exit 1 ; }
 
-      - name: Build toolchain
+      - name: Build packages one by one
         run: |
           cd openwrt
-          make -j"$(nproc)" toolchain/install > ../tc.log 2>&1 || { tail -n 80 ../tc.log ; exit 1 ; }
-
-      - name: Build addon packages
-        run: |
-          cd openwrt
-          make -j"$(nproc)" \
-            package/xray-core/compile \
-            package/sing-box/compile \
-            package/v2ray-geodata/compile \
-            package/simple-obfs/compile \
-            package/luci-app-passwall/compile \
-            package/luci-i18n-passwall-zh-cn/compile \
-            > ../addons.log 2>&1 || echo "SOME PACKAGE FAILED (see log)"
-          echo "== tail =="
-          tail -n 40 ../addons.log
+          : > ../addons.log
+          for t in luci-app-passwall luci-i18n-passwall-zh-cn v2ray-geodata simple-obfs xray-core ; do
+            echo "===== compile $t =====" >> ../addons.log
+            if make -j"$(nproc)" "package/$t/compile" >> ../addons.log 2>&1 ; then
+              echo "OK   $t" | tee -a ../addons.log
+            else
+              echo "FAIL $t" | tee -a ../addons.log
+            fi
+          done
           echo "== apk list =="
-          find bin/packages -name '*.apk' 2>/dev/null | sed 's|bin/packages/|  |' | sort | head -60
+          find bin/packages -name '*.apk' 2>/dev/null | sed 's|.*/||' | sort
 
       - name: Bundle apk
         if: always()
@@ -108,25 +102,24 @@ jobs:
           mkdir -p bundle out/packages
           for f in $(find openwrt/bin/packages -name '*.apk' 2>/dev/null); do
             case "$(basename "$f")" in
-              luci-app-passwall-*|luci-i18n-passwall-*|xray-core-*|v2ray-geodata-*|simple-obfs-*|sing-box-*|geoview-*)
+              luci-app-passwall-*|luci-i18n-passwall-*|xray-core-*|v2ray-geoip-*|v2ray-geosite-*|simple-obfs-*|geoview-*)
                 cp -v "$f" bundle/ || true ;;
             esac
           done
           ls -lh bundle || true
           printf '%s\n' '#!/bin/sh' 'cd "$(dirname "$0")" || exit 1' \
-            'echo ">> 安装 PassWall 本体 + 依赖 + 内核"' \
+            'echo ">> 安装 PassWall 本体 + 内核"' \
             'if apk add --allow-untrusted ./*.apk 2>/dev/null ; then echo ">> OK" ; else' \
             '  for f in ./*.apk ; do apk add --allow-untrusted "$f" || echo "!! failed: $f" ; done ; fi' \
             'echo ">> 完成：LuCI -> 服务 -> PassWall"' > bundle/install.sh
           chmod +x bundle/install.sh
-          printf '%s\n' 'Cudy TR3000 / ImmortalWrt 25.12 - PassWall 完整插件包（apk 格式）' \
-            '1) 整目录传到路由器 /tmp/passwall/（scp 或 LuCI 文件管理上传）' \
+          printf '%s\n' 'Cudy TR3000 / ImmortalWrt 25.12 - PassWall 完整插件包（apk）' \
+            '1) 整目录传到路由器 /tmp/passwall/' \
             '2) ssh: cd /tmp/passwall && sh install.sh' \
             '3) LuCI -> 服务 -> PassWall' \
             '' '固件里已内置依赖：coreutils* curl dnsmasq-full dns2socks microsocks tcping' \
-            '  ipt2socks chinadns-ng lyaml lua libuci-lua luci-compat luci-lib-jsonc ip-full' \
-            '' '本包含：luci-app-passwall（本体+LuCI）、中文语言包、xray-core、sing-box、' \
-            '  v2ray-geodata、simple-obfs 等' > bundle/README.txt
+            '  ipt2socks chinadns-ng lyaml lua libuci-lua luci-compat luci-lib-jsonc ip-full sing-box' \
+            '' '本包含：luci-app-passwall 本体+LuCI、中文语言包、xray-core、v2ray-geoip/geosite、simple-obfs' > bundle/README.txt
           if ls bundle/*.apk >/dev/null 2>&1 ; then
             STAMP=$(date -u +%Y%m%d-%H%M)
             ( cd bundle && zip -r -q "../out/packages/tr3000-passwall-full-${STAMP}.zip" . )
@@ -160,13 +153,13 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Push logs to branch (always)
+      - name: Push logs to branch
         if: always()
         continue-on-error: true
         run: |
           mkdir -p diag
           cp openwrt/.config diag/config-addons.txt 2>/dev/null || true
-          for f in feeds cfg tools tc addons ; do tail -n 400 "$f.log" > "diag/$f-tail.log" 2>/dev/null || true; done
+          for f in feeds cfg tools addons ; do tail -n 500 "$f.log" > "diag/$f-tail.log" 2>/dev/null || true; done
           find openwrt/bin/packages -name '*.apk' 2>/dev/null | sed 's|.*/||' | sort > diag/apk-list.txt || true
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -183,5 +176,4 @@ jobs:
             echo ""
             echo "- apk 数量：$(ls bundle/*.apk 2>/dev/null | wc -l)"
             echo "- 列表：$(ls bundle 2>/dev/null | tr '\n' ' ')"
-            echo "- 产物：$(ls out/packages 2>/dev/null | tr '\n' ' ')"
           } >> "$GITHUB_STEP_SUMMARY"
