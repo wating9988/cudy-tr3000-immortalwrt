@@ -1,16 +1,19 @@
-# Cudy TR3000 v1 (128MB) · ImmortalWrt 25.12 固件 · V2（无 clashoo / 含 ttyd）
+# Cudy TR3000 v1 (128MB) · ImmortalWrt 25.12 固件 · V4（无 clashoo / 无 sing-box / 含 ttyd）
 
 源码：`chasey-dev/immortalwrt-mt798x-rebase` @ `25.12`（内核 6.12 / MTK 闭源无线驱动）
 
-> **本版本 = V1 的全部功能，去掉 clashoo（clashoo + luci-app-clashoo + 中文语言包），新增 ttyd 网页终端。**
-> V1（含 clashoo 面板）仍保留在 `fw-20261123-1103` 这个 release 里。
+> **本版本 = V1 的全部功能，去掉 clashoo 三件套与 sing-box 内核，新增 ttyd 网页终端，并把 clashoo 日后自装所需的 5 个内核模块显式编入。**
+> V1（含 clashoo + mihomo）仍保留在 `fw-20261123-1103` 这个 release。
 
-## V2 差异
+## V4 差异
 
-- ❌ 移除：`clashoo`、`luci-app-clashoo`、`luci-i18n-clashoo-zh-cn`（mihomo 面板不再内置）
+- ❌ 移除：`clashoo`、`luci-app-clashoo`、`luci-i18n-clashoo-zh-cn`、`sing-box`
 - ✅ 新增：`ttyd` + `luci-app-ttyd`（LuCI → 系统 → TTYD 终端，默认端口 7681）
-- ✅ 保留：`sing-box` 内核 + `yq` / `unzip`（日后想装回 clashoo 或给 passwall 用都现成）
-- 其余与 V1 完全一致：闭源无线 / APCLI / 802.11k-r-w / HNAT / USB 全栈 / ksmbd+wsdd2 / 文件管理 / WireGuard / DDNS / passwall 依赖 / BTF 内核特性
+- ✅ 内置 clashoo 自装所需内核模块：`kmod-tun`、`kmod-dummy`、`kmod-inet-diag`、`kmod-nft-socket`、`kmod-nft-tproxy`
+- ✅ 保留工具：`yq`、`unzip`、`curl`、`ip-full`、`firewall4`、`luci-base`、`luci-compat`
+- 其余与 V1 一致：闭源无线 / APCLI / 802.11k-r-w / HNAT / USB 全栈 / ksmbd+wsdd2 / 文件管理 / WireGuard / DDNS / passwall 依赖 / BTF 内核特性
+
+> 装 clashoo 时只需装 `clashoo` + `luci-app-clashoo` + `luci-i18n-clashoo-zh-cn` 三个 apk，依赖已全在固件里。
 
 ## 资产说明
 
@@ -61,4 +64,4 @@
 ## PassWall / clashoo 安装
 
 - PassWall：解压 `tr3000-passwall-full-*.zip` 传到 `/tmp/passwall/`，`cd /tmp/passwall && sh install.sh`，然后 LuCI → 服务 → PassWall。
-- clashoo（可选）：`sing-box` / `yq` / `unzip` 已在固件里，装上 `clashoo` 的 apk 即可恢复面板。
+- clashoo（可选）：直接装 `clashoo` + `luci-app-clashoo` + `luci-i18n-clashoo-zh-cn` 三个 apk，内核 mihomo 在 clashoo 包内自带。
