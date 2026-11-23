@@ -4,8 +4,9 @@
 保留 defconfig 里全部 MT7981 闭源无线 / HNAT / Fast-NAT 调优项，
 只把设备收窄到 Cudy TR3000（默认 ubootmod / ITB 布局），再叠加本项目要的功能包。
 
-V2 变化：去掉 clashoo 三件套（clashoo / luci-app-clashoo / luci-i18n-clashoo-zh-cn），
-新增 ttyd + luci-app-ttyd 网页终端；其余功能与 V1 完全一致。
+V2/V3：去掉 clashoo 三件套（clashoo / luci-app-clashoo / luci-i18n-clashoo-zh-cn），
+新增 ttyd + luci-app-ttyd 网页终端；V3 额外把 clashoo 运行所需的 kmod-dummy 编入固件，
+保证日后自行安装 clashoo 时依赖不掉链子。
 """
 import sys
 
@@ -76,7 +77,7 @@ EXTRA = [
     # ---------- LuCI 内置文件管理 ----------
     "CONFIG_PACKAGE_luci-app-filebrowser=y",
     "CONFIG_PACKAGE_luci-i18n-filebrowser-zh-cn=y",
-    # ---------- ttyd 网页终端（V2 新增）----------
+    # ---------- ttyd 网页终端 ----------
     "CONFIG_PACKAGE_ttyd=y",
     "CONFIG_PACKAGE_luci-app-ttyd=y",
     # ---------- WireGuard ----------
@@ -96,10 +97,16 @@ EXTRA = [
     "CONFIG_PACKAGE_ddns-scripts-noip=y",
     "CONFIG_PACKAGE_luci-app-ddns=y",
     "CONFIG_PACKAGE_luci-i18n-ddns-zh-cn=y",
-    # ---------- sing-box 内核保留（V2 不再提供 clashoo 面板，留给 passwall/自装用）----------
+    # ---------- sing-box 内核保留（不提供 clashoo 面板，留给 passwall/自装用）----------
     "CONFIG_PACKAGE_sing-box=y",
     "CONFIG_PACKAGE_yq=y",
     "CONFIG_PACKAGE_unzip=y",
+    # ---------- clashoo 日后自装的内核依赖（V3 显式补入）----------
+    "CONFIG_PACKAGE_kmod-dummy=y",
+    "CONFIG_PACKAGE_kmod-tun=y",
+    "CONFIG_PACKAGE_kmod-inet-diag=y",
+    "CONFIG_PACKAGE_kmod-nft-socket=y",
+    "CONFIG_PACKAGE_kmod-nft-tproxy=y",
     # ---------- passwall 依赖（不含 passwall 本体）----------
     "CONFIG_PACKAGE_dnsmasq-full=y",
     "# CONFIG_PACKAGE_dnsmasq is not set",
