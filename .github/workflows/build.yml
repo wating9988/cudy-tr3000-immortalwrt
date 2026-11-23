@@ -1,4 +1,4 @@
-name: build-tr3000
+name: build-tr3000-v6
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: build-tr3000
+  group: build-tr3000-v6
   cancel-in-progress: false
 
 env:
@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Prepare tag
-        run: echo "TAG=fw-$(date -u +%Y%m%d-%H%M)" >> "$GITHUB_ENV"
+        run: echo "TAG=fw-v6-$(date -u +%Y%m%d-%H%M)" >> "$GITHUB_ENV"
 
       - name: Free disk space
         run: |
@@ -86,7 +86,8 @@ jobs:
 
           cd openwrt
           make defconfig
-          grep -E "DEVICE_cudy_tr3000|^CONFIG_PACKAGE_(clashoo|sing-box|ksmbd-server|luci-app-ksmbd)=" .config | head -20
+          echo "== selected =="
+          grep -E "DEVICE_cudy_tr3000|^CONFIG_PACKAGE_(clashoo|luci-app-clashoo|luci-app-passwall|ksmbd-hotplug|xray-core|sing-box)=" .config || true
 
       - name: Verify critical symbols
         run: |
@@ -103,20 +104,21 @@ jobs:
           set -o pipefail
           cd openwrt
           START=$(date +%s)
-          make -j"$(nproc)" > ../build.log 2>&1 || { echo "BUILD FAILED" ; tail -n 500 ../build.log ; exit 1 ; }
+          make -j"$(nproc)" > ../build.log 2>&1 || { echo "BUILD FAILED" ; tail -n 800 ../build.log ; exit 1 ; }
           echo "build seconds: $(( $(date +%s) - START ))"
           echo "== images =="
-          ls -lh bin/targets/mediatek/filogic/ | tail -20
+          ls -lh bin/targets/mediatek/filogic/ | tail -30
 
       - name: Collect firmware
         if: success()
         run: |
           mkdir -p "$GITHUB_WORKSPACE/out/firmware" "$GITHUB_WORKSPACE/out/diag"
           cd openwrt/bin/targets/mediatek/filogic
-          cp -v *.itb *.bin *.manifest sha256sums "$GITHUB_WORKSPACE/out/firmware/" 2>/dev/null || true
+          find . -maxdepth 1 -type f \( -name '*.itb' -o -name '*.manifest' -o -name 'sha256sums' \) \
+            -exec cp -v {} "$GITHUB_WORKSPACE/out/firmware/" \;
           cd "$GITHUB_WORKSPACE"
-          cp openwrt/.config out/diag/config-built.txt
           cp openwrt/.config out/firmware/config-built.txt
+          cp openwrt/.config out/diag/config-built.txt
           awk -F' - ' '{print $1}' openwrt/bin/targets/mediatek/filogic/*.manifest | sort -u > out/diag/packages.txt || true
           ls -lh out/firmware
 
@@ -128,80 +130,50 @@ jobs:
         run: |
           FILES=$(ls out/firmware/* 2>/dev/null | tr '\n' ' ')
           gh release create "${TAG}" \
-            --title "TR3000 固件 ${TAG}（ImmortalWrt 25.12 / 闭源 mt_wifi）" \
+            --title "TR3000 固件 ${TAG}（ImmortalWrt 25.12 / 闭源 mt_wifi / ITB）" \
             --notes-file .github/RELEASE_NOTES.md $FILES 2>&1 | tail -5 || true
           echo "release: https://github.com/${{ github.repository }}/releases/tag/${TAG}"
           gh release view "${TAG}" --json assets -q '.assets[].name' || true
 
-      - name: Build 114m (official U-Boot layout) image
-        continue-on-error: true
-        run: |
-          cd openwrt
-          sed -i 's|^CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cudy_tr3000-v1-ubootmod=y$|# CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cudy_tr3000-v1-ubootmod is not set|' .config
-          echo 'CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cudy_tr3000-v1-mtkuboot=y' >> .config
-          make defconfig
-          grep -q 'DEVICE_cudy_tr3000-v1-mtkuboot=y' .config && echo "device switched to mtkuboot"
-          make -j"$(nproc)" > ../build-mtkuboot.log 2>&1 || { tail -n 200 ../build-mtkuboot.log ; exit 1 ; }
-          mkdir -p "$GITHUB_WORKSPACE/out/firmware-114m"
-          cp -v bin/targets/mediatek/filogic/*mtkuboot*.bin bin/targets/mediatek/filogic/*mtkuboot*.manifest \
-            bin/targets/mediatek/filogic/sha256sums "$GITHUB_WORKSPACE/out/firmware-114m/" 2>/dev/null || true
-          ls -lh "$GITHUB_WORKSPACE/out/firmware-114m" || true
-
-      - name: Upload 114m image to release
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if ls out/firmware-114m/* >/dev/null 2>&1 ; then
-            gh release upload "${TAG}" out/firmware-114m/* --clobber
-            echo "uploaded 114m image"
-          else
-            echo "no 114m image produced, skip"
-          fi
-
-      - name: Build addon packages (passwall + xray, as .apk)
+      - name: Build addon packages (xray + sing-box, not in firmware)
         continue-on-error: true
         run: |
           cd openwrt
           cat >> .config <<'EOF'
-          CONFIG_PACKAGE_luci-app-passwall=m
-          CONFIG_PACKAGE_luci-i18n-passwall-zh-cn=m
           CONFIG_PACKAGE_xray-core=m
-          CONFIG_PACKAGE_geoview=m
+          CONFIG_PACKAGE_sing-box=m
           EOF
           make defconfig > ../addons.log 2>&1
-          grep -E "^CONFIG_PACKAGE_(luci-app-passwall|luci-i18n-passwall-zh-cn|xray-core|geoview)=" .config || echo "WARN none selected"
-          make -j"$(nproc)" >> ../addons.log 2>&1 || echo "PLUGIN BUILD HAD FAILURES (see log)"
-          find bin/packages -name '*.apk' | wc -l
+          echo "== addon config =="
+          grep -E "^CONFIG_PACKAGE_(xray-core|sing-box)=" .config || echo "WARN none selected"
+          make -j"$(nproc)" package/xray-core/compile package/sing-box/compile >> ../addons.log 2>&1 || {
+            echo "ADDON BUILD FAILED"
+            tail -n 500 ../addons.log
+            exit 1
+          }
+          find bin/packages -type f \( -name 'xray-core-*.apk' -o -name 'sing-box-*.apk' \) | sort
 
       - name: Bundle addons
         if: always()
         run: |
           mkdir -p out/packages bundle-apk out/diag
-          find openwrt/bin/packages -name '*.apk' 2>/dev/null | while read -r f ; do
-            base=$(basename "$f")
-            case "$base" in
-              luci-app-passwall-*|luci-i18n-passwall-*|xray-core-*|geoview-*|v2ray-geodata-*|chinadns-ng-*|dns2socks-*|microsocks-*|tcping-*|simple-obfs-*)
-                cp -v "$f" bundle-apk/ || true ;;
-            esac
+          find openwrt/bin/packages -type f \( -name 'xray-core-*.apk' -o -name 'sing-box-*.apk' \) 2>/dev/null | while read -r f ; do
+            cp -v "$f" bundle-apk/ || true
           done
-          tail -n 200 addons.log > out/diag/addons-tail.txt 2>/dev/null || true
+          tail -n 300 addons.log > out/diag/addons-tail.txt 2>/dev/null || true
           printf '%s\n' '#!/bin/sh' 'cd "$(dirname "$0")" || exit 1' \
-            'echo ">> 安装 PassWall 本体 + 依赖"' \
-            'if apk add --allow-untrusted ./*.apk 2>/dev/null ; then echo ">> OK" ; else' \
-            '  for f in ./*.apk ; do apk add --allow-untrusted "$f" || echo "!! failed: $f" ; done ; fi' \
-            'echo ">> 完成：LuCI -> 服务 -> PassWall"' > bundle-apk/install.sh
+            'echo ">> 安装 Xray / Sing-box 内核（不进固件，按需安装）"' \
+            'for f in ./*.apk ; do apk add --allow-untrusted "$f" || echo "!! failed: $f" ; done' \
+            'echo ">> 完成。PassWall -> 服务 -> PassWall，选择 xray-core 或 sing-box"' > bundle-apk/install.sh
           chmod +x bundle-apk/install.sh
-          printf '%s\n' 'Cudy TR3000 - PassWall 插件包（25.12 是 .apk 格式）' \
-            '1) 把整个目录传到路由器 /tmp/passwall/（scp 或 LuCI 文件管理上传）' \
-            '2) ssh 执行：cd /tmp/passwall && sh install.sh' \
-            '3) LuCI -> 服务 -> PassWall' \
-            '' '固件里已内置：chinadns-ng dns2socks microsocks tcping simple-obfs ipt2socks' \
-            '               v2ray-geodata dnsmasq-full lyaml luci-compat 等依赖' \
-            '固件里未内置：passwall 本体 / LuCI 页面 / xray 内核（就在这个包里）' > bundle-apk/README.txt
+          printf '%s\n' 'Cudy TR3000 - PassWall 内核包（25.12 是 .apk 格式）' \
+            '内含：xray-core、sing-box 两个独立 apk。' \
+            '固件里没有这两个内核；PassWall 插件本体已经内置。' \
+            '安装：整个目录传到 /tmp/passwall/，cd /tmp/passwall && sh install.sh' \
+            '之后在 LuCI -> 服务 -> PassWall 里选择 xray-core 或 sing-box。' > bundle-apk/README.txt
           if ls bundle-apk/*.apk >/dev/null 2>&1 ; then
             STAMP=$(date -u +%Y%m%d-%H%M)
-            ( cd bundle-apk && zip -r -q "../out/packages/tr3000-passwall-apk-${STAMP}.zip" . )
+            ( cd bundle-apk && zip -r -q "../out/packages/tr3000-passwall-cores-${STAMP}.zip" . )
             ls -lh out/packages/*.zip
           else
             echo "no apk produced"
@@ -224,7 +196,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tr3000-firmware-and-addons
+          name: tr3000-v6-firmware-and-cores
           path: |
             out/
             build.log
@@ -237,9 +209,8 @@ jobs:
         run: |
           mkdir -p diag
           cp openwrt/.config diag/config-$(date -u +%H%M).txt 2>/dev/null || true
-          tail -n 800 build.log > diag/build-tail.log 2>/dev/null || true
-          tail -n 300 build-mtkuboot.log > diag/mtkuboot-tail.log 2>/dev/null || true
-          tail -n 300 addons.log > diag/addons-tail.log 2>/dev/null || true
+          tail -n 1000 build.log > diag/build-tail.log 2>/dev/null || true
+          tail -n 500 addons.log > diag/addons-tail.log 2>/dev/null || true
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B "diag-run-${{ github.run_number }}"
@@ -255,6 +226,5 @@ jobs:
             echo ""
             echo "- 运行号：${{ github.run_number }}"
             echo "- 固件：$(ls out/firmware 2>/dev/null | tr '\n' ' ')"
-            echo "- 114m：$(ls out/firmware-114m 2>/dev/null | tr '\n' ' ')"
-            echo "- 插件包：$(ls out/packages 2>/dev/null | tr '\n' ' ')"
+            echo "- 内核包：$(ls out/packages 2>/dev/null | tr '\n' ' ')"
           } >> "$GITHUB_STEP_SUMMARY"
