@@ -1,3 +1,3 @@
-插件包第 3 轮：恢复 run #1 成功时的配置形状（不设 MULTI_PROFILE），并显式跑 tools/install + toolchain/install 再做逐个 package compile。
+插件包第 4 轮：关掉所有可选 INCLUDE（只留 INCLUDE_Xray），单独编 luci-app-passwall + 中文包 + xray-core；sing-box 用官方 1.14.4 arm64 二进制随包附带。
 
-触发时间：2026-11-23 22:10 CST
+触发时间：2026-11-24 00:50 CST
