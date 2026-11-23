@@ -3,6 +3,9 @@
 
 保留 defconfig 里全部 MT7981 闭源无线 / HNAT / Fast-NAT 调优项，
 只把设备收窄到 Cudy TR3000（默认 ubootmod / ITB 布局），再叠加本项目要的功能包。
+
+V2 变化：去掉 clashoo 三件套（clashoo / luci-app-clashoo / luci-i18n-clashoo-zh-cn），
+新增 ttyd + luci-app-ttyd 网页终端；其余功能与 V1 完全一致。
 """
 import sys
 
@@ -73,6 +76,9 @@ EXTRA = [
     # ---------- LuCI 内置文件管理 ----------
     "CONFIG_PACKAGE_luci-app-filebrowser=y",
     "CONFIG_PACKAGE_luci-i18n-filebrowser-zh-cn=y",
+    # ---------- ttyd 网页终端（V2 新增）----------
+    "CONFIG_PACKAGE_ttyd=y",
+    "CONFIG_PACKAGE_luci-app-ttyd=y",
     # ---------- WireGuard ----------
     "CONFIG_PACKAGE_kmod-wireguard=y",
     "CONFIG_PACKAGE_wireguard-tools=y",
@@ -90,10 +96,7 @@ EXTRA = [
     "CONFIG_PACKAGE_ddns-scripts-noip=y",
     "CONFIG_PACKAGE_luci-app-ddns=y",
     "CONFIG_PACKAGE_luci-i18n-ddns-zh-cn=y",
-    # ---------- clashoo：mihomo 内核 + sing-box 内核一起烧进固件 ----------
-    "CONFIG_PACKAGE_clashoo=y",
-    "CONFIG_PACKAGE_luci-app-clashoo=y",
-    "CONFIG_PACKAGE_luci-i18n-clashoo-zh-cn=y",
+    # ---------- sing-box 内核保留（V2 不再提供 clashoo 面板，留给 passwall/自装用）----------
     "CONFIG_PACKAGE_sing-box=y",
     "CONFIG_PACKAGE_yq=y",
     "CONFIG_PACKAGE_unzip=y",
@@ -125,8 +128,12 @@ EXTRA = [
     "CONFIG_KERNEL_XDP_SOCKETS=y",
     "CONFIG_KERNEL_XDP_SOCKETS_DIAG=y",
     # ---------- 明确不烧进固件 ----------
+    "# CONFIG_PACKAGE_clashoo is not set",
+    "# CONFIG_PACKAGE_luci-app-clashoo is not set",
+    "# CONFIG_PACKAGE_luci-i18n-clashoo-zh-cn is not set",
     "# CONFIG_PACKAGE_luci-app-passwall is not set",
     "# CONFIG_PACKAGE_luci-i18n-passwall-zh-cn is not set",
+    "# CONFIG_PACKAGE_pikvm is not set",
 ]
 
 device_lines = ["CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_%s=y" % d for d in DEVICES]
