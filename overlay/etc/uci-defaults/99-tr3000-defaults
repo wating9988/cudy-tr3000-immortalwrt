@@ -1,0 +1,27 @@
+#!/bin/sh
+# /etc/uci-defaults/99-tr3000-defaults
+# 首次启动生效：LAN 固定 192.168.6.1/24，并打开 ksmbd / wsdd2 等服务。
+# 说明：/32 掩码会让 dnsmasq 拒绝服务、IPv4 直接瘫，这里显式写死 255.255.255.0。
+
+uci -q set network.lan.ipaddr='192.168.6.1'
+uci -q set network.lan.netmask='255.255.255.0'
+uci -q set network.lan.proto='static'
+uci -q set dhcp.lan.start='100'
+uci -q set dhcp.lan.limit='150'
+uci -q set dhcp.lan.leasetime='12h'
+uci -q commit network
+uci -q commit dhcp
+
+# ksmbd 网络存储（服务 → 网络存储）
+uci -q set ksmbd.globals.workgroup='WORKGROUP'
+uci -q set ksmbd.globals.description='Cudy TR3000'
+uci -q commit ksmbd 2>/dev/null
+
+/etc/init.d/ksmbd enable 2>/dev/null
+/etc/init.d/wsdd2 enable 2>/dev/null
+/etc/init.d/ksmbd restart 2>/dev/null
+/etc/init.d/wsdd2 restart 2>/dev/null
+
+chmod 600 /etc/shadow 2>/dev/null
+
+exit 0
