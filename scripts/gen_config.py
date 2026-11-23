@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """从本树的 mt7981-ax3000 defconfig 生成 .config 种子。
 
-保留 defconfig 里全部 MT7981 闭源无线 / HNAT / Fast-NAT 调优项，
-只把设备收窄到 Cudy TR3000（默认 ubootmod / ITB 布局），再叠加本项目要的功能包。
-
-V5（最终精简版）：
-  - 去掉 clashoo 三件套、去掉 sing-box（均走插件包/用户自装）
-  - 新增 ttyd + luci-app-ttyd
-  - 显式编入 clashoo 日后自装所需的 5 个内核模块
-  - passwall 只保留安装必需的硬依赖，可选内核（xray/sing-box）与 geo 数据、simple-obfs 全部不烧进固件
+V6（本次确认版）：
+  - 设备固定为 Cudy TR3000 v1（128MB）OpenWrt U-Boot / ubootmod 布局，产出 sysupgrade.itb
+  - 闭源 mt_wifi / APCLI / 802.11k-v-r-w / HNAT / Fast-NAT 全保留
+  - iOS / Android / QMI / MBIM / Option USB 共享全栈
+  - USB 存储 + ext4/ntfs3/exfat/vfat/f2fs + automount + kmod-mtd-rw
+  - ksmbd + ksmbd-hotplug + wsdd2 + LuCI 网络存储
+  - clashoo + LuCI 写进固件（Mihomo 内核随 clashoo）
+  - PassWall 插件本体写进固件，但关闭 PassWall 自带的可选内核/可选依赖
+  - Xray / Sing-box 不进固件，由 Actions 单独编译为 .apk 附件
 """
 import sys
 
@@ -70,16 +71,16 @@ EXTRA = [
     "CONFIG_PACKAGE_e2fsprogs=y",
     # ---------- 闪存维护 ----------
     "CONFIG_PACKAGE_kmod-mtd-rw=y",
-    # ---------- ksmbd（SMB2/3）+ wsdd2 ----------
+    # ---------- ksmbd（SMB2/3）+ 热插共享 + wsdd2 ----------
     "CONFIG_PACKAGE_kmod-fs-ksmbd=y",
     "CONFIG_PACKAGE_ksmbd-server=y",
+    "CONFIG_PACKAGE_ksmbd-hotplug=y",
     "CONFIG_PACKAGE_wsdd2=y",
     "CONFIG_PACKAGE_luci-app-ksmbd=y",
     "CONFIG_PACKAGE_luci-i18n-ksmbd-zh-cn=y",
-    # ---------- LuCI 内置文件管理 ----------
+    # ---------- LuCI 内置文件管理 / 网页终端 ----------
     "CONFIG_PACKAGE_luci-app-filebrowser=y",
     "CONFIG_PACKAGE_luci-i18n-filebrowser-zh-cn=y",
-    # ---------- ttyd 网页终端 ----------
     "CONFIG_PACKAGE_ttyd=y",
     "CONFIG_PACKAGE_luci-app-ttyd=y",
     # ---------- WireGuard ----------
@@ -99,15 +100,47 @@ EXTRA = [
     "CONFIG_PACKAGE_ddns-scripts-noip=y",
     "CONFIG_PACKAGE_luci-app-ddns=y",
     "CONFIG_PACKAGE_luci-i18n-ddns-zh-cn=y",
-    # ---------- clashoo 日后自装的工具 / 内核模块依赖 ----------
+    # ---------- Clashoo（Mihomo 内核随包）----------
+    "CONFIG_PACKAGE_clashoo=y",
+    "CONFIG_PACKAGE_luci-app-clashoo=y",
+    "CONFIG_PACKAGE_luci-i18n-clashoo-zh-cn=y",
     "CONFIG_PACKAGE_yq=y",
-    "CONFIG_PACKAGE_unzip=y",
+    "CONFIG_PACKAGE_curl=y",
+    "CONFIG_PACKAGE_ca-bundle=y",
+    "CONFIG_PACKAGE_ip-full=y",
+    "CONFIG_PACKAGE_firewall4=y",
+    "CONFIG_PACKAGE_nftables=y",
     "CONFIG_PACKAGE_kmod-dummy=y",
     "CONFIG_PACKAGE_kmod-tun=y",
     "CONFIG_PACKAGE_kmod-inet-diag=y",
     "CONFIG_PACKAGE_kmod-nft-socket=y",
     "CONFIG_PACKAGE_kmod-nft-tproxy=y",
-    # ---------- passwall 硬依赖（只保留安装必需）----------
+    "CONFIG_PACKAGE_kmod-nft-nat=y",
+    "CONFIG_PACKAGE_kmod-nf-reject=y",
+    "CONFIG_PACKAGE_kmod-nf-reject6=y",
+    "CONFIG_PACKAGE_unzip=y",
+    # ---------- PassWall 插件本体（关闭所有可选内核/可选依赖）----------
+    "CONFIG_PACKAGE_luci-app-passwall=y",
+    "CONFIG_PACKAGE_luci-i18n-passwall-zh-cn=y",
+    "CONFIG_PACKAGE_luci-app-passwall_Nftables_Transparent_Proxy=y",
+    "# CONFIG_PACKAGE_luci-app-passwall_Iptables_Transparent_Proxy is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Geoview is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SmartDNS is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Haproxy is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Hysteria is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_NaiveProxy is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Rust_Client is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadowsocks_Rust_Server is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_ShadowsocksR_Libev_Client is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_ShadowsocksR_Libev_Server is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Shadow_TLS is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Simple_Obfs is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_V2ray_Geodata is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_V2ray_Plugin is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Xray is not set",
+    "# CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Xray_Plugin is not set",
+    # PassWall 安装必需依赖
     "CONFIG_PACKAGE_dnsmasq-full=y",
     "# CONFIG_PACKAGE_dnsmasq is not set",
     "CONFIG_PACKAGE_chinadns-ng=y",
@@ -131,16 +164,9 @@ EXTRA = [
     "CONFIG_KERNEL_CGROUP_BPF=y",
     "CONFIG_KERNEL_XDP_SOCKETS=y",
     "CONFIG_KERNEL_XDP_SOCKETS_DIAG=y",
-    # ---------- 明确不烧进固件（可选件全部走插件包 / 自装）----------
+    # ---------- 明确不烧进固件（内核单独打包）----------
     "# CONFIG_PACKAGE_sing-box is not set",
-    "# CONFIG_PACKAGE_clashoo is not set",
-    "# CONFIG_PACKAGE_luci-app-clashoo is not set",
-    "# CONFIG_PACKAGE_luci-i18n-clashoo-zh-cn is not set",
-    "# CONFIG_PACKAGE_luci-app-passwall is not set",
-    "# CONFIG_PACKAGE_luci-i18n-passwall-zh-cn is not set",
-    "# CONFIG_PACKAGE_simple-obfs-client is not set",
-    "# CONFIG_PACKAGE_simple-obfs-server is not set",
-    "# CONFIG_PACKAGE_v2ray-geodata is not set",
+    "# CONFIG_PACKAGE_xray-core is not set",
     "# CONFIG_PACKAGE_pikvm is not set",
 ]
 
