@@ -1,3 +1,3 @@
-插件包第 2 轮：逐个编译（不用并行 make，避开 sing-box 拉崩 gpio-button-hotplug 导致 passwall 被跳过）。
+插件包第 3 轮：恢复 run #1 成功时的配置形状（不设 MULTI_PROFILE），并显式跑 tools/install + toolchain/install 再做逐个 package compile。
 
-触发时间：2026-11-23 21:45 CST
+触发时间：2026-11-23 22:10 CST

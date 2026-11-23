@@ -49,15 +49,13 @@ jobs:
           ./scripts/feeds update -a > ../feeds.log 2>&1
           ./scripts/feeds install -a >> ../feeds.log 2>&1
 
-      - name: Configure
+      - name: Configure (same shape as working run #1)
         run: |
           cd openwrt
           cp defconfig/mt7981-ax3000.config .config
           cat >> .config <<'EOF'
           CONFIG_TARGET_mediatek=y
           CONFIG_TARGET_mediatek_filogic=y
-          CONFIG_TARGET_MULTI_PROFILE=y
-          CONFIG_TARGET_PER_DEVICE_ROOTFS=y
           CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cudy_tr3000-v1-ubootmod=y
           CONFIG_PACKAGE_luci-app-passwall=m
           CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Xray=y
@@ -66,20 +64,26 @@ jobs:
           # CONFIG_PACKAGE_luci-app-passwall_INCLUDE_SingBox is not set
           # CONFIG_PACKAGE_luci-app-passwall_INCLUDE_V2ray_Geoview is not set
           CONFIG_PACKAGE_luci-i18n-passwall-zh-cn=m
-          CONFIG_PACKAGE_xray-core=m
           CONFIG_PACKAGE_v2ray-geodata=m
           CONFIG_PACKAGE_simple-obfs=m
           EOF
           make defconfig > ../cfg.log 2>&1 || true
           echo "== selected =="
-          grep -E "^CONFIG_PACKAGE_(luci-app-passwall|luci-i18n-passwall-zh-cn|xray-core|v2ray-geodata|simple-obfs)=" .config || echo "WARN none"
+          grep -E "^CONFIG_PACKAGE_(luci-app-passwall|luci-i18n-passwall-zh-cn|v2ray-geodata|simple-obfs|xray-core)=" .config || echo "WARN none"
           grep -E "^# CONFIG_PACKAGE_luci-app-passwall is not set" .config || true
           grep -E "^CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cudy_tr3000-v1-ubootmod=" .config || true
+          grep -E "^CONFIG_TARGET_MULTI_PROFILE" .config || true
 
       - name: Build host tools
         run: |
           cd openwrt
-          make -j"$(nproc)" tools/install > ../tools.log 2>&1 || { tail -n 40 ../tools.log ; exit 1 ; }
+          make -j"$(nproc)" tools/install > ../tools.log 2>&1 || { echo "TOOLS FAILED" ; tail -n 60 ../tools.log ; exit 1 ; }
+
+      - name: Build toolchain (required before package compile)
+        run: |
+          cd openwrt
+          make -j"$(nproc)" toolchain/install > ../tc.log 2>&1 || { echo "TOOLCHAIN FAILED" ; tail -n 120 ../tc.log ; exit 1 ; }
+          echo "toolchain ok"
 
       - name: Build packages one by one
         run: |
@@ -91,6 +95,7 @@ jobs:
               echo "OK   $t" | tee -a ../addons.log
             else
               echo "FAIL $t" | tee -a ../addons.log
+              tail -n 60 ../addons.log
             fi
           done
           echo "== apk list =="
@@ -159,7 +164,7 @@ jobs:
         run: |
           mkdir -p diag
           cp openwrt/.config diag/config-addons.txt 2>/dev/null || true
-          for f in feeds cfg tools addons ; do tail -n 500 "$f.log" > "diag/$f-tail.log" 2>/dev/null || true; done
+          for f in feeds cfg tools tc addons ; do tail -n 500 "$f.log" > "diag/$f-tail.log" 2>/dev/null || true; done
           find openwrt/bin/packages -name '*.apk' 2>/dev/null | sed 's|.*/||' | sort > diag/apk-list.txt || true
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
