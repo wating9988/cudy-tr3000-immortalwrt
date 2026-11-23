@@ -1,0 +1,36 @@
+
+tmp/.config-package.in:110547:error: recursive dependency detected!
+tmp/.config-package.in:110547:	symbol PACKAGE_dnsdist depends on PACKAGE_dnsdist
+For a resolution refer to Documentation/kbuild/kconfig-language.rst
+subsection "Kconfig recursive dependency limitations"
+
+tmp/.config-package.in:69428:error: recursive dependency detected!
+tmp/.config-package.in:69428:	symbol PACKAGE_luci-app-weechat depends on PACKAGE_luci-app-weechat
+For a resolution refer to Documentation/kbuild/kconfig-language.rst
+subsection "Kconfig recursive dependency limitations"
+
+tmp/.config-package.in:110577:error: recursive dependency detected!
+tmp/.config-package.in:110577:	symbol PACKAGE_dnsdist-full depends on PACKAGE_dnsdist-full
+For a resolution refer to Documentation/kbuild/kconfig-language.rst
+subsection "Kconfig recursive dependency limitations"
+
+tmp/.config-package.in:108932:error: recursive dependency detected!
+tmp/.config-package.in:108932:	symbol PACKAGE_snort3 depends on PACKAGE_snort3
+For a resolution refer to Documentation/kbuild/kconfig-language.rst
+subsection "Kconfig recursive dependency limitations"
+
+tmp/.config-package.in:111010:error: recursive dependency detected!
+tmp/.config-package.in:111010:	symbol PACKAGE_knot-resolver depends on PACKAGE_knot-resolver
+For a resolution refer to Documentation/kbuild/kconfig-language.rst
+subsection "Kconfig recursive dependency limitations"
+
+tmp/.config-package.in:108805:error: recursive dependency detected!
+tmp/.config-package.in:108805:	symbol PACKAGE_openappid depends on PACKAGE_openappid
+For a resolution refer to Documentation/kbuild/kconfig-language.rst
+subsection "Kconfig recursive dependency limitations"
+
+.config:484:warning: override: TARGET_mediatek changes choice state
+.config:485:warning: override: TARGET_mediatek_filogic changes choice state
+#
+# configuration written to .config
+#

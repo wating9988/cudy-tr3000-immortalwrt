@@ -1,0 +1,59 @@
+make[2]: Entering directory '/home/runner/work/cudy-tr3000-immortalwrt/cudy-tr3000-immortalwrt/openwrt/scripts/config'
+make[2]: 'conf' is up to date.
+make[2]: Leaving directory '/home/runner/work/cudy-tr3000-immortalwrt/cudy-tr3000-immortalwrt/openwrt/scripts/config'
+ make[1] toolchain/install
+ make[2] tools/compile
+ make[3] -C tools/flock compile
+ make[3] -C tools/libdeflate compile
+ make[3] -C tools/zstd compile
+ make[3] -C tools/sed compile
+ make[3] -C tools/tar compile
+ make[3] -C tools/patch compile
+ make[3] -C tools/m4 compile
+ make[3] -C tools/autoconf-archive compile
+ make[3] -C tools/ninja compile
+ make[3] -C tools/xz compile
+ make[3] -C tools/gnulib compile
+ make[3] -C tools/expat compile
+ make[3] -C tools/zlib compile
+ make[3] -C tools/cpio compile
+ make[3] -C tools/lzma compile
+ make[3] -C tools/mtools compile
+ make[3] -C tools/patch-image compile
+ make[3] -C tools/squashfs4 compile
+ make[3] -C tools/sstrip compile
+ make[3] -C tools/zip compile
+ make[3] -C tools/autoconf compile
+ make[3] -C tools/meson compile
+ make[3] -C tools/make-ext4fs compile
+ make[3] -C tools/missing-macros compile
+ make[3] -C tools/pkgconf compile
+ make[3] -C tools/lz4 compile
+ make[3] -C tools/automake compile
+ make[3] -C tools/libressl compile
+ make[3] -C tools/libtool compile
+ make[3] -C tools/dosfstools compile
+ make[3] -C tools/cmake compile
+ make[3] -C tools/flex compile
+ make[3] -C tools/fakeroot compile
+ make[3] -C tools/gengetopt compile
+ make[3] -C tools/mklibs compile
+ make[3] -C tools/patchelf compile
+ make[3] -C tools/gmp compile
+ make[3] -C tools/bison compile
+ make[3] -C tools/firmware-utils compile
+ make[3] -C tools/mpfr compile
+ make[3] -C tools/bc compile
+ make[3] -C tools/util-linux compile
+ make[3] -C tools/elfutils compile
+ make[3] -C tools/findutils compile
+ make[3] -C tools/mkimage compile
+ make[3] -C tools/mpc compile
+ make[3] -C tools/e2fsprogs compile
+ make[3] -C tools/erofs-utils compile
+ make[3] -C tools/mtd-utils compile
+ make[3] -C tools/padjffs2 compile
+ make[3] -C tools/quilt compile
+ make[2] -C toolchain/binutils compile
+ make[2] -C toolchain/fortify-headers compile
+ make[2] -C toolchain/gcc/initial compile
