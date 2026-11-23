@@ -1,0 +1,124 @@
+#!/bin/sh
+# /etc/hotplug.d/net/99-usbwan
+# 免配置随身路由：USB 网卡 / 手机共享 / 4G-5G 模组插入后自动拉起 usbwan 并挂进防火墙 wan 区，
+# 拔出后自动释放。
+
+dev="${INTERFACE:-$DEVICENAME}"
+[ -n "$dev" ] || exit 0
+
+log() { logger -t usbwan "$*"; }
+
+# 不碰有线 lan / 桥 / 无线
+case "$dev" in
+	br-*|lo|eth0|eth1|wlan*|ra*|rai*|apcli*|phy*|sit*|gre*|tun*|tailscale*|wg*) exit 0 ;;
+esac
+
+is_usb_dev() {
+	case "$dev" in
+		usb*|wwan*|enx*|rmnet*) return 0 ;;
+	esac
+	link=$(readlink -f "/sys/class/net/$dev/device" 2>/dev/null)
+	case "$link" in
+		*/usb*) return 0 ;;
+	esac
+	return 1
+}
+
+# 已被其它逻辑接管（例如桥接到 br-lan）的接口直接跳过
+ip -o link show "$dev" 2>/dev/null | grep -q ' master ' && exit 0
+uci -q get "network.$dev" >/dev/null 2>&1 && exit 0
+
+wan_zone_idx() {
+	idx=0
+	while uci -q get "firewall.@zone[$idx]" >/dev/null 2>&1; do
+		if [ "$(uci -q get "firewall.@zone[$idx].name")" = "wan" ]; then
+			echo "$idx"
+			return 0
+		fi
+		idx=$((idx + 1))
+	done
+	return 1
+}
+
+do_up() {
+	is_usb_dev || return 0
+
+	proto="dhcp"
+	qmi_dev=""
+	case "$dev" in
+		wwan*|rmnet*)
+			# QMI 模组（rmnet/wwan + cdc-wdm）走 qmi 协议，其余走 dhcp
+			for c in /dev/cdc-wdm*; do
+				[ -e "$c" ] || continue
+				qmi_dev="$c"
+				break
+			done
+			[ -n "$qmi_dev" ] && proto="qmi"
+			;;
+	esac
+
+	apn="$(uci -q get usbwan_default.apn)"
+	pdptype="$(uci -q get usbwan_default.pdptype)"
+
+	uci -q delete network.usbwan
+	uci set network.usbwan=interface
+	uci set network.usbwan.proto="$proto"
+	uci set network.usbwan.metric="10"
+	if [ "$proto" = "qmi" ]; then
+		uci set network.usbwan.device="$qmi_dev"
+		uci set network.usbwan.pdptype="${pdptype:-ipv4}"
+		[ -n "$apn" ] && uci set network.usbwan.apn="$apn"
+		[ -n "$apn" ] && uci set network.usbwan.username=""
+		[ -n "$apn" ] && uci set network.usbwan.password=""
+	else
+		uci set network.usbwan.device="$dev"
+	fi
+	uci commit network
+
+	wz="$(wan_zone_idx)"
+	if [ -n "$wz" ]; then
+		uci -q add_list "firewall.@zone[$wz].network=usbwan"
+		uci commit firewall
+	fi
+
+	log "attach $dev as usbwan (proto=$proto${qmi_dev:+, dev=$qmi_dev})"
+	(
+		sleep 3
+		/etc/init.d/network reload >/dev/null 2>&1
+		sleep 2
+		/etc/init.d/firewall reload >/dev/null 2>&1
+	) &
+}
+
+do_down() {
+	cur="$(uci -q get network.usbwan.device)"
+	[ -n "$cur" ] || return 0
+	[ "$cur" = "$dev" ] || [ "$cur" = "/dev/cdc-wdm0" -a -n "$(echo "$dev" | grep -E '^wwan')" ] || return 0
+
+	uci -q delete network.usbwan
+	uci commit network
+
+	wz="$(wan_zone_idx)"
+	if [ -n "$wz" ]; then
+		uci -q del_list "firewall.@zone[$wz].network=usbwan"
+		uci commit firewall
+	fi
+
+	log "detach $dev, usbwan released"
+	(
+		sleep 1
+		/etc/init.d/network reload >/dev/null 2>&1
+		/etc/init.d/firewall reload >/dev/null 2>&1
+	) &
+}
+
+case "$ACTION" in
+	add|up)
+		do_up
+		;;
+	remove|down)
+		do_down
+		;;
+esac
+
+exit 0
