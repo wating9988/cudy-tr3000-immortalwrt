@@ -1,0 +1,118 @@
+name: build-cores
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'trigger/cores.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-cores
+  cancel-in-progress: false
+
+env:
+  GOPROXY: https://goproxy.cn,https://proxy.golang.org,direct
+  GOSUMDB: off
+  RELEASE_TAG: fw-v6-20261123-1755
+
+jobs:
+  cores:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/share/boost /opt/hostedtoolcache/CodeQL /usr/local/.ghcup || true
+          sudo apt-get clean
+          df -h /
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential clang flex bison g++ gawk \
+            gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev \
+            python3 python3-setuptools python3-pyelftools python3-pip rsync swig \
+            unzip zip zlib1g-dev libelf-dev libiberty-dev dwarves ccache bc \
+            bzip2 xz-utils patch diffutils perl wget curl
+          nproc && free -h
+
+      - name: Clone source
+        run: |
+          git clone --depth 1 -b 25.12 https://github.com/chasey-dev/immortalwrt-mt798x-rebase.git openwrt
+
+      - name: Feeds + third-party packages
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+          git clone --depth 1 https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git package/passwall-packages
+          python3 ../scripts/patch_sources.py .
+
+      - name: Minimal config for xray + sing-box
+        run: |
+          cd openwrt
+          cat > .config <<'EOF'
+          CONFIG_TARGET_mediatek=y
+          CONFIG_TARGET_mediatek_filogic=y
+          CONFIG_TARGET_MULTI_PROFILE=y
+          CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cudy_tr3000-v1-ubootmod=y
+          CONFIG_TARGET_DEVICE_PACKAGES_mediatek_filogic_DEVICE_cudy_tr3000-v1-ubootmod=""
+          CONFIG_PACKAGE_xray-core=m
+          CONFIG_PACKAGE_sing-box=m
+          EOF
+          make defconfig
+          echo "== selected =="
+          grep -E "DEVICE_cudy_tr3000|^CONFIG_PACKAGE_(xray-core|sing-box)=" .config || true
+
+      - name: Build cores
+        run: |
+          set -o pipefail
+          cd openwrt
+          make -j"$(nproc)" > ../cores.log 2>&1 || { echo "CORES BUILD FAILED" ; tail -n 800 ../cores.log ; exit 1 ; }
+          echo "== apk =="
+          find bin/packages -type f \( -name 'xray-core-*.apk' -o -name 'sing-box-*.apk' \) | sort
+
+      - name: Bundle and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p bundle-apk
+          find openwrt/bin/packages -type f \( -name 'xray-core-*.apk' -o -name 'sing-box-*.apk' \) | while read -r f ; do
+            cp -v "$f" bundle-apk/
+          done
+          printf '%s\n' '#!/bin/sh' 'cd "$(dirname "$0")" || exit 1' \
+            'echo ">> 安装 Xray / Sing-box 内核（不进固件，按需安装）"' \
+            'for f in ./*.apk ; do apk add --allow-untrusted "$f" || echo "!! failed: $f" ; done' \
+            'echo ">> 完成。PassWall -> 服务 -> PassWall，选择 xray-core 或 sing-box"' > bundle-apk/install.sh
+          chmod +x bundle-apk/install.sh
+          printf '%s\n' 'Cudy TR3000 - PassWall 内核包（25.12 是 .apk 格式）' \
+            '内含：xray-core、sing-box 两个独立 apk。' \
+            '固件里没有这两个内核；PassWall 插件本体已经内置。' \
+            '安装：整个目录传到 /tmp/passwall/，cd /tmp/passwall && sh install.sh' \
+            '之后在 LuCI -> 服务 -> PassWall 里选择 xray-core 或 sing-box。' > bundle-apk/README.txt
+          STAMP=$(date -u +%Y%m%d-%H%M)
+          ( cd bundle-apk && zip -r -q "../tr3000-passwall-cores-${STAMP}.zip" . )
+          gh release upload "${RELEASE_TAG}" tr3000-passwall-cores-*.zip --clobber
+          echo "uploaded to ${RELEASE_TAG}"
+
+      - name: Diagnostics on failure
+        if: failure()
+        continue-on-error: true
+        run: |
+          mkdir -p diag
+          cp openwrt/.config diag/config-cores.txt 2>/dev/null || true
+          tail -n 1000 cores.log > diag/cores-tail.log 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "diag-cores-${{ github.run_number }}"
+          git add -f diag
+          git commit -m "diag cores ${{ github.run_number }}" || echo "nothing to commit"
+          git push -f origin "diag-cores-${{ github.run_number }}"
