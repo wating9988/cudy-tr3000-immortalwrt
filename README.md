@@ -1,4 +1,4 @@
-# Cudy TR3000 v1 · ImmortalWrt 25.12 云编译工程（V6 / ITB）
+# Cudy TR3000 v1 · ImmortalWrt 25.12 云编译工程（V7 / ITB）
 
 基于 [chasey-dev/immortalwrt-mt798x-rebase](https://github.com/chasey-dev/immortalwrt-mt798x-rebase) 的 `25.12` 分支，
 用 GitHub Actions 交叉编译 Cudy TR3000 v1（MT7981B / 128MB NAND）固件。
@@ -11,8 +11,9 @@
 - `usbwan` Hotplug 自动接入 `wan` 防火墙区
 - USB 3.0 + ext4/ntfs3/exfat/vfat/f2fs + automount + `kmod-mtd-rw`
 - ksmbd + `ksmbd-hotplug` + `wsdd2`
-- Clashoo + LuCI 内置
-- PassWall 插件本体内置；Xray / Sing-box 单独 `.apk` 打包
+- **Nikki + LuCI + Mihomo 内置**
+- **PassWall 插件本体内置；Xray / Sing-box 单独 `.apk` 打包**
+- **Clashoo 已移除**
 - LAN `192.168.6.1/24`，root 密码 `password`
 
 ## 仓库结构
@@ -26,7 +27,7 @@
 | `overlay/etc/hotplug.d/net/99-usbwan` | USB 网卡 / 手机 / 模组即插即用，自动挂 wan 区 |
 | `overlay/etc/uci-defaults/99-tr3000-defaults` | 首次启动：LAN 192.168.6.1/24、开 ksmbd+wsdd2 |
 | `overlay/etc/shadow` | 预置 root 密码 `password` |
-| `trigger/` | 往这里推一个文件即触发一次编译 |
+| `trigger/build.md` | 改这个文件并 push 即触发一次编译 |
 
 ## 产物
 
@@ -42,7 +43,7 @@ cd cudy-tr3000-immortalwrt
 echo build >> trigger/build.md && git commit -am build && git push
 ```
 
-也可以在 GitHub Actions 页面手动运行 `build-tr3000-v6`。
+也可以在 GitHub Actions 页面手动运行 `build-tr3000-v7`。
 
 ## 本地编译（可选）
 
