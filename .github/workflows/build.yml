@@ -146,7 +146,7 @@ jobs:
           make defconfig > ../addons.log 2>&1
           echo "== addon config =="
           grep -E "^CONFIG_PACKAGE_(xray-core|sing-box)=" .config || echo "WARN none selected"
-          make -j"$(nproc)" package/passwall-packages/xray-core/compile package/passwall-packages/sing-box/compile >> ../addons.log 2>&1 || {
+          make -j"$(nproc)" >> ../addons.log 2>&1 || {
             echo "ADDON BUILD FAILED"
             tail -n 500 ../addons.log
             exit 1
