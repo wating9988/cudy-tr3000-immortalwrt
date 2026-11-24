@@ -1,17 +1,13 @@
-# Cudy TR3000 v1 (128MB) · ImmortalWrt 25.12 固件 · V6（ITB）
+# Cudy TR3000 v1 (128MB) · ImmortalWrt 25.12 固件 · V7（ITB）
 
 源码：`chasey-dev/immortalwrt-mt798x-rebase` @ `25.12`（内核 6.12 / MTK 闭源无线驱动）
 
-## 本版重点
+## 本版变更
 
-- **仅出 OpenWrt U-Boot / ubootmod 布局的 ITB 固件**，不再附带原厂 114m BIN。
-- 保留联发科闭源 `mt_wifi`、APCLI、802.11k/v/r、802.11w、HNAT / Fast-NAT。
-- 内置 iOS / Android / QMI / MBIM / Option USB 共享全栈。
-- 内置 `usbwan` Hotplug：识别 `usb0` / `eth2` / `wwan0`，自动挂防火墙 `wan` 区，拔出自动释放。
-- 内置 ksmbd + `ksmbd-hotplug` + `wsdd2`，U 盘/移动硬盘自动生成 SMB 共享。
-- **内置 Clashoo + LuCI 面板**（Mihomo 内核随 clashoo）。
-- **内置 PassWall 插件本体 + LuCI 页面 + 中文包**。
-- **Xray / Sing-box 不进固件**，作为独立 `.apk` 内核包随 Release 提供，后续可单独升级。
+- **移除 Clashoo / luci-app-clashoo / Mihomo-Clashoo 面板**。
+- **新增 Nikki + LuCI 面板 + 中文包 + Mihomo 内核**（`nikki` / `luci-app-nikki` / `luci-i18n-nikki-zh-cn` / `mihomo-meta`）。
+- PassWall 保持原方案：插件本体 + LuCI + 中文包写进固件，Xray / Sing-box 仍单独 `.apk`，不写进固件。
+- 其余硬件级优化不变：闭源 mt_wifi、APCLI、802.11k/v/r、802.11w、HNAT / Fast-NAT、USB 全栈、ksmbd、WireGuard、DDNS、BTF 内核特性。
 
 ## 资产说明
 
@@ -57,13 +53,13 @@
 - WireGuard + DDNS（Cloudflare / 阿里云 / DNSPod / 华为云 / No-IP）
 - 内核特性：`DEBUG_INFO_BTF`、`CGROUP_BPF`、`XDP_SOCKETS`、`nft-tproxy`
 
+## Nikki 使用
+
+Nikki 已内置，LuCI → 服务 → Nikki。Mihomo 内核随 `mihomo-meta` 一起安装，不需要额外下载。
+
 ## PassWall 使用
 
 1. PassWall 插件本体已内置，LuCI → 服务 → PassWall；
 2. 解压 `tr3000-passwall-cores-*.zip`，把整个目录传到路由器 `/tmp/passwall/`；
 3. SSH 执行：`cd /tmp/passwall && sh install.sh`；
 4. 在 PassWall 中选择 `xray-core` 或 `sing-box` 内核。
-
-## Clashoo
-
-Clashoo 已内置，LuCI → 服务 → Clashoo。Mihomo 内核随 clashoo 包一起安装，不需要额外下载。
