@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """从本树的 mt7981-ax3000 defconfig 生成 .config 种子。
 
-V6（本次确认版）：
+V7（本次确认版）：
   - 设备固定为 Cudy TR3000 v1（128MB）OpenWrt U-Boot / ubootmod 布局，产出 sysupgrade.itb
   - 闭源 mt_wifi / APCLI / 802.11k-v-r-w / HNAT / Fast-NAT 全保留
   - iOS / Android / QMI / MBIM / Option USB 共享全栈
   - USB 存储 + ext4/ntfs3/exfat/vfat/f2fs + automount + kmod-mtd-rw
   - ksmbd + ksmbd-hotplug + wsdd2 + LuCI 网络存储
-  - clashoo + LuCI 写进固件（Mihomo 内核随 clashoo）
+  - 移除 Clashoo；新增 Nikki + LuCI + Mihomo 内核
   - PassWall 插件本体写进固件，但关闭 PassWall 自带的可选内核/可选依赖
   - Xray / Sing-box 不进固件，由 Actions 单独编译为 .apk 附件
 """
@@ -100,10 +100,12 @@ EXTRA = [
     "CONFIG_PACKAGE_ddns-scripts-noip=y",
     "CONFIG_PACKAGE_luci-app-ddns=y",
     "CONFIG_PACKAGE_luci-i18n-ddns-zh-cn=y",
-    # ---------- Clashoo（Mihomo 内核随包）----------
-    "CONFIG_PACKAGE_clashoo=y",
-    "CONFIG_PACKAGE_luci-app-clashoo=y",
-    "CONFIG_PACKAGE_luci-i18n-clashoo-zh-cn=y",
+    # ---------- Nikki（Mihomo 透明代理）----------
+    "CONFIG_PACKAGE_nikki=y",
+    "CONFIG_PACKAGE_luci-app-nikki=y",
+    "CONFIG_PACKAGE_luci-i18n-nikki-zh-cn=y",
+    "CONFIG_PACKAGE_mihomo-meta=y",
+    "# CONFIG_PACKAGE_mihomo-alpha is not set",
     "CONFIG_PACKAGE_yq=y",
     "CONFIG_PACKAGE_curl=y",
     "CONFIG_PACKAGE_ca-bundle=y",
@@ -119,6 +121,10 @@ EXTRA = [
     "CONFIG_PACKAGE_kmod-nf-reject=y",
     "CONFIG_PACKAGE_kmod-nf-reject6=y",
     "CONFIG_PACKAGE_unzip=y",
+    # ---------- 移除 Clashoo ----------
+    "# CONFIG_PACKAGE_clashoo is not set",
+    "# CONFIG_PACKAGE_luci-app-clashoo is not set",
+    "# CONFIG_PACKAGE_luci-i18n-clashoo-zh-cn is not set",
     # ---------- PassWall 插件本体（关闭所有可选内核/可选依赖）----------
     "CONFIG_PACKAGE_luci-app-passwall=y",
     "CONFIG_PACKAGE_luci-i18n-passwall-zh-cn=y",
